@@ -80,7 +80,29 @@ client.on("messageCreate", async (message) => {
             return;
         }
 
-        if (message.content == "%list") {
+        if (message.content.startsWith("%cd")) {
+            const time = parseInt(message.content.substring(3));
+
+            if (isNaN(time) || time <= 0) {
+                return await message.channel.send(
+                    "Expected a positive integer."
+                );
+            }
+
+            await db
+                .collection("settings")
+                .findOneAndUpdate(
+                    { key: "cd" },
+                    { $set: { value: time } },
+                    { upsert: true }
+                );
+
+            return await message.channel.send(
+                `Set the trivia cooldown to ${time} minute${
+                    time == 1 ? "" : "s"
+                }`
+            );
+        } else if (message.content == "%list") {
             return await message.channel.send({
                 files: [
                     {
