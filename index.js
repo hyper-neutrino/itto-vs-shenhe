@@ -64,9 +64,214 @@ function title_case(text) {
     return text.charAt(0).toUpperCase() + text.substring(1);
 }
 
+const tracking = new Map();
+
 client.on("messageCreate", async (message) => {
     if (message.author.bot) return;
-    if (!message.guild) return;
+
+    if (!message.guild) {
+        if (
+            ![
+                "369975025609998337",
+                "251082987360223233",
+                "716983438401601539",
+            ].includes(message.author.id)
+        ) {
+            return;
+        }
+
+        if (message.content == "%list") {
+            return await message.channel.send({
+                files: [
+                    {
+                        attachment: Buffer.from(
+                            (await db.collection("trivia").find({}).toArray())
+                                .map(
+                                    (entry) =>
+                                        "[" +
+                                        entry.id +
+                                        "] " +
+                                        entry.question +
+                                        "\n" +
+                                        entry.answers
+                                            .map((answer) => `- ${answer}`)
+                                            .join("\n")
+                                )
+                                .join("\n")
+                        ),
+                        name: "questions.txt",
+                    },
+                ],
+            });
+        } else if (message.content.startsWith("%delete")) {
+            const id = message.content.substring(7).trim();
+
+            if (!(await db.collection("trivia").findOne({ id }))) {
+                return await message.channel.send("Question not found.");
+            }
+
+            await db.collection("trivia").findOneAndDelete({ id });
+            return await message.channel.send("Question deleted.");
+        } else if (message.content.startsWith("%search")) {
+            const question = message.content.substring(7).trim().toLowerCase();
+
+            let found = false;
+
+            for (const entry of await db
+                .collection("trivia")
+                .find({})
+                .toArray()) {
+                if (entry.question.toLowerCase().indexOf(question) != -1) {
+                    found = true;
+
+                    await message.channel.send({
+                        embeds: [
+                            {
+                                description: `**${entry.question}**`,
+                                fields: [
+                                    {
+                                        name: "Answers",
+                                        value: entry.answers
+                                            .map((answer) => `- ${answer}`)
+                                            .join("\n"),
+                                    },
+                                ],
+                                footer: {
+                                    text: "ID: " + entry.id,
+                                },
+                            },
+                        ],
+                        files: entry.attachments,
+                    });
+                }
+            }
+
+            if (!found) {
+                await message.channel.send(
+                    "Search did not return any results."
+                );
+            }
+
+            return;
+        }
+
+        const data = tracking.get(message.author.id);
+
+        if (data && new Date() - data.time < 5 * 60 * 1000) {
+            const answers = message.content.split(/[\r\n\f]+/).map((x) => x);
+
+            if (answers.length == 0) {
+                return await message.channel.send(
+                    "Please specify at least one answer."
+                );
+            }
+
+            const id = new Array(32)
+                .fill(1)
+                .map((_) =>
+                    "0123456789abcdef".charAt(Math.floor(Math.random() * 16))
+                )
+                .join("");
+
+            await db.collection("trivia").insertOne({
+                id,
+                question: data.message.content,
+                attachments: [...data.message.attachments.values()],
+                answers: answers.map((x) => x.toLowerCase()),
+            });
+
+            try {
+                await data.reply.delete();
+            } catch {}
+
+            await message.channel.send({
+                embeds: [
+                    {
+                        title: "Trivia Question Created",
+                        color: "GREEN",
+                        fields: [
+                            {
+                                name: "Question",
+                                value: data.message.content,
+                            },
+                            {
+                                name: "Answers",
+                                value: answers
+                                    .map((x) => `\`${x.toLowerCase()}\``)
+                                    .join(", "),
+                            },
+                        ],
+                        footer: {
+                            text: "Press the button below to delete this question at any time.",
+                        },
+                    },
+                ],
+                components: [
+                    {
+                        type: "ACTION_ROW",
+                        components: [
+                            {
+                                type: "BUTTON",
+                                style: "DANGER",
+                                label: "DELETE",
+                                customId: `delete.${id}`,
+                            },
+                            {
+                                type: "BUTTON",
+                                style: "SUCCESS",
+                                label: "REMOVE BUTTONS",
+                                customId: "clean",
+                            },
+                        ],
+                    },
+                ],
+            });
+
+            tracking.delete(message.author.id);
+        } else {
+            if (!message.content) return;
+
+            const reply = await message.channel.send({
+                embeds: [
+                    {
+                        title: "Trivia Question Setup",
+                        description: `Initializing a trivia question with question __${
+                            message.content
+                        }__${
+                            message.attachments.length > 0
+                                ? ` and ${
+                                      message.attachments.length
+                                  } attachment${
+                                      message.attachments.length == 1 ? "" : "s"
+                                  }`
+                                : ""
+                        }.\n\nPlease enter all valid answers line-by-line in one message. Case-insensitive. Alternatively, press the button below to cancel and submit a new question. Auto-cancel in 5 minutes.`,
+                    },
+                ],
+                components: [
+                    {
+                        type: "ACTION_ROW",
+                        components: [
+                            {
+                                type: "BUTTON",
+                                style: "DANGER",
+                                label: "CANCEL",
+                                customId: "cancel",
+                            },
+                        ],
+                    },
+                ],
+            });
+
+            tracking.set(message.author.id, {
+                time: new Date(),
+                message,
+                reply,
+            });
+        }
+
+        return;
+    }
 
     if (message.content == "%help") {
         await message.reply({
@@ -355,6 +560,57 @@ client.on("messageCreate", async (message) => {
     );
 
     last_message.set(message.author.id, message.createdAt);
+});
+
+client.on("interactionCreate", async (interaction) => {
+    if (interaction.isButton()) {
+        if (interaction.customId == "cancel") {
+            tracking.delete(interaction.user.id);
+            await interaction.update({
+                content: "Never mind.",
+                embeds: [],
+                components: [],
+            });
+        } else if (interaction.customId == "clean") {
+            await interaction.update({ components: [] });
+        } else if (interaction.customId.startsWith("delete.")) {
+            const id = interaction.customId.substring(7);
+
+            const question = await db.collection("trivia").findOne({ id });
+
+            if (!question) {
+                await interaction.reply({
+                    content: "That trivia question was already deleted.",
+                    ephemeral: true,
+                });
+                await interaction.message.delete();
+            } else {
+                await db.collection("trivia").findOneAndDelete({ id });
+                await interaction.update({
+                    content: "This trivia question was deleted.",
+                    embeds: [
+                        {
+                            title: "Trivia Question Deleted",
+                            color: "RED",
+                            fields: [
+                                {
+                                    name: "Question",
+                                    value: question.question,
+                                },
+                                {
+                                    name: "Answers",
+                                    value: question.answers
+                                        .map((answer) => `\`${answer}\``)
+                                        .join(", "),
+                                },
+                            ],
+                        },
+                    ],
+                    components: [],
+                });
+            }
+        }
+    }
 });
 
 client.login(config.discord_token);
