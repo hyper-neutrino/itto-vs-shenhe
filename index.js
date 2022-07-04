@@ -30,8 +30,94 @@ client.on("ready", async () => {
         channel: await client.channels.fetch(config.servers.shenhe.channel),
     };
 
+    if (await db.collection("on").findOne({ on: true })) post_trivia();
+
     console.log("Ready!");
 });
+
+let answers = [];
+let cancel;
+let active = 0;
+let maxskip = 0;
+let skip = 0;
+
+function post_trivia() {
+    setTimeout(async () => {
+        try {
+            if (skip > 0) {
+                --skip;
+            } else {
+                const entries = await db
+                    .collection("trivia")
+                    .find({ used: undefined })
+                    .toArray();
+
+                const entry =
+                    entries[Math.floor(Math.random() * entries.length)];
+
+                await db
+                    .collection("trivia")
+                    .findOneAndUpdate(
+                        { _id: entry._id },
+                        { $set: { used: true } }
+                    );
+
+                const { channel } =
+                    Math.random() > 0.5 ? client.itto : client.shenhe;
+
+                await channel.send({
+                    embeds: [
+                        {
+                            title: "**Trivia Question!**",
+                            description: entry.question,
+                            color: "ff00ff",
+                            footer: {
+                                text: "You have 2 minutes to answer. You will gain 100 points for whichever server you answer from.",
+                            },
+                        },
+                    ],
+                    files: entry.attachments,
+                });
+
+                active = 0;
+                answers = entry.answers;
+
+                cancel = setTimeout(async () => {
+                    await channel.send({
+                        embeds: [
+                            {
+                                title: "**Trivia Question Expired.**",
+                                description:
+                                    "Nobody answered the trivia question in time, so nobody has been rewarded. Better luck next time!",
+                                color: "ff0000",
+                                footer:
+                                    active >= 5
+                                        ? maxskip > 0
+                                            ? {
+                                                  text: "Because chat is active enough, the trivia question interval has been reset.",
+                                              }
+                                            : undefined
+                                        : skip == 0
+                                        ? {
+                                              text: "Due to inactivity, the trivia question interval is being automatically raised.",
+                                          }
+                                        : undefined,
+                            },
+                        ],
+                    });
+
+                    if (active >= 5) maxskip = 0;
+                    if (active < 5 && skip == 0) ++maxskip;
+                    if (skip == 0) skip = maxskip;
+                }, 120000);
+            }
+        } catch (error) {
+            console.error(error);
+        }
+
+        post_trivia();
+    }, Math.floor(Math.random() * 600000 + 600000));
+}
 
 const background = await loadImage("background.png");
 
@@ -80,7 +166,21 @@ client.on("messageCreate", async (message) => {
             return;
         }
 
-        if (message.content.startsWith("%cd")) {
+        if (message.content == "%start") {
+            if (!(await db.collection("on").findOne({ on: true }))) {
+                post_trivia();
+
+                await db
+                    .collection("on")
+                    .findOneAndUpdate(
+                        {},
+                        { $set: { on: true } },
+                        { upsert: true }
+                    );
+            }
+
+            return await message.reply("Trivia posting started.");
+        } else if (message.content.startsWith("%cd")) {
             const time = parseInt(message.content.substring(3));
 
             if (isNaN(time) || time <= 0) {
@@ -558,6 +658,8 @@ client.on("messageCreate", async (message) => {
         return;
     }
 
+    ++active;
+
     let points;
 
     if (last_message.has(message.author.id)) {
@@ -567,6 +669,32 @@ client.on("messageCreate", async (message) => {
         );
     } else {
         points = 10;
+    }
+
+    if (answers.includes(message.content.toLowerCase())) {
+        await message.reply({
+            embeds: [
+                {
+                    title: "**Trivia Answered!**",
+                    description:
+                        "That is correct; congratulations! You have gained 100 points on this server.",
+                    color: "00ff00",
+                    footer:
+                        maxskip > 0
+                            ? {
+                                  text: "The trivia interval has been reset to normal.",
+                              }
+                            : undefined,
+                },
+            ],
+        });
+
+        points += 100;
+
+        answers = [];
+        skip = maxskip = 0;
+        clearTimeout(cancel);
+        active = 0;
     }
 
     await db.collection("points").findOneAndUpdate(
