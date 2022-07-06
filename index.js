@@ -158,6 +158,26 @@ function title_case(text) {
     return text.charAt(0).toUpperCase() + text.substring(1);
 }
 
+async function is_dq(id) {
+    try {
+        const member = await client.shenhe.server.members.fetch(id);
+        if (member.roles.cache.has("838116854866116608")) return true;
+    } catch {}
+
+    try {
+        const member = await client.itto.server.members.fetch();
+        if (
+            member.roles.cache.hasAny(
+                "864190506505732118",
+                "864192893128015903"
+            )
+        )
+            return true;
+    } catch {}
+
+    return false;
+}
+
 const tracking = new Map();
 
 client.on("messageCreate", async (message) => {
@@ -470,6 +490,8 @@ client.on("messageCreate", async (message) => {
                 const pts =
                     (await db.collection("points").findOne({ user: id })) ?? {};
 
+                const dq = pts.dq || (await is_dq(id));
+
                 ctx.drawImage(background, 0, 0, 1000, 400);
 
                 ctx.fillStyle = "#0009";
@@ -478,7 +500,7 @@ client.on("messageCreate", async (message) => {
 
                 const height = constrain_text(ctx, "sans-serif", name, 550, 60);
 
-                ctx.fillStyle = pts.dq ? "#f00" : "#eee";
+                ctx.fillStyle = dq ? "#f00" : "#eee";
                 ctx.fillText(
                     name,
                     650 - ctx.measureText(name).width / 2,
@@ -539,7 +561,7 @@ client.on("messageCreate", async (message) => {
                 ctx.closePath();
                 ctx.fill();
 
-                ctx.fillStyle = pts.dq ? "#f00" : "#888";
+                ctx.fillStyle = dq ? "#f00" : "#888";
                 ctx.beginPath();
                 ctx.arc(x, y, r + 3, 0, Math.PI * 2, true);
                 ctx.fill();
@@ -557,7 +579,7 @@ client.on("messageCreate", async (message) => {
                 ctx.drawImage(avatar, x - r, y - r, r * 2, r * 2);
 
                 await message.reply({
-                    content: pts.dq
+                    content: dq
                         ? `${
                               data.length == 1 ? "You are" : "This user is"
                           } disqualified.`
@@ -586,9 +608,16 @@ client.on("messageCreate", async (message) => {
                     ? ["itto", "shenhe"]
                     : ["shenhe", "itto"];
 
-            const entries = (
-                await db.collection("points").find({}).toArray()
-            ).filter((entry) => !entry.dq);
+            const entries = [];
+
+            for (const entry of await db
+                .collection("points")
+                .find({})
+                .toArray()) {
+                if (entry.dq) continue;
+                if (await is_dq(entry.user)) continue;
+                entries.push(entry);
+            }
 
             const totals = {};
 
