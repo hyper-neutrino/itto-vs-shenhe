@@ -90,6 +90,14 @@ function post_trivia() {
                                 description:
                                     "Nobody answered the trivia question in time, so nobody has been rewarded. Better luck next time!",
                                 color: "ff0000",
+                                fields: [
+                                    {
+                                        name: "Answers",
+                                        value: entry.answers
+                                            .map((answer) => `- ${answer}`)
+                                            .join("\n"),
+                                    },
+                                ],
                                 footer:
                                     active >= 5
                                         ? maxskip > 0
