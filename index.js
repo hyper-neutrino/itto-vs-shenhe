@@ -158,24 +158,14 @@ function title_case(text) {
     return text.charAt(0).toUpperCase() + text.substring(1);
 }
 
-async function is_dq(id) {
-    try {
-        const member = await client.shenhe.server.members.fetch(id);
-        if (member.roles.cache.has("838116854866116608")) return true;
-    } catch {}
+const dqset = new Set(
+    "815842845226303518 537773793939030016 212302695334150145 281299190502391819 429804945378770955 321071333083709442 179343867902951424 277682661320032257 291643360635256832 291643360635256832 388195202751397893 211496188678111234 494660779358945290 419282969497305119 802825258138468384 251082987360223233 618573012588953601 588681632404471808 440723536814800899 725030980053631008 94978723341668352 440958061729939456 609371475547521024 399947802471563275 893961055968063578 209617229216612352 703999474673909870 495842927550005268 115696298539089923 369975025609998337 474489885680730113 300985931740217344 548937692273049658 699690024576221264 143615626785587200 753141485922287658 272390122748641280 218330525012590592 716983438401601539 307047594063036416 254750430087610379 402074274082586628".split(
+        /\s+/
+    )
+);
 
-    try {
-        const member = await client.itto.server.members.fetch();
-        if (
-            member.roles.cache.hasAny(
-                "864190506505732118",
-                "864192893128015903"
-            )
-        )
-            return true;
-    } catch {}
-
-    return false;
+function is_dq(id) {
+    return dqset.has(id);
 }
 
 const tracking = new Map();
@@ -490,7 +480,7 @@ client.on("messageCreate", async (message) => {
                 const pts =
                     (await db.collection("points").findOne({ user: id })) ?? {};
 
-                const dq = pts.dq || (await is_dq(id));
+                const dq = pts.dq || is_dq(id);
 
                 ctx.drawImage(background, 0, 0, 1000, 400);
 
@@ -615,7 +605,7 @@ client.on("messageCreate", async (message) => {
                 .find({})
                 .toArray()) {
                 if (entry.dq) continue;
-                if (await is_dq(entry.user)) continue;
+                if (is_dq(entry.user)) continue;
                 entries.push(entry);
             }
 
