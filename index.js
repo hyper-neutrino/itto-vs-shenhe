@@ -630,7 +630,7 @@ client.on("messageCreate", async (message) => {
                             )} points**\n\n` +
                             entries
                                 .filter((entry) => entry[key])
-                                .sort((a, b) => (a[key] ?? 0) - (b[key] ?? 0))
+                                .sort((a, b) => (b[key] ?? 0) - (a[key] ?? 0))
                                 .slice(page * 20, page * 20 + 20)
                                 .map(
                                     (entry) =>
