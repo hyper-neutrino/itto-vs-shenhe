@@ -243,6 +243,21 @@ client.on("messageCreate", async (message) => {
                     },
                 ],
             });
+        } else if (message.content == "%count") {
+            let total = 0,
+                unused = 0;
+
+            for (const entry of await db
+                .collection("trivia")
+                .find({})
+                .toArray()) {
+                ++total;
+                if (!entry.used) ++unused;
+            }
+
+            return await message.channel.send(
+                `${unused} unused questions left (${total} total).`
+            );
         } else if (message.content.startsWith("%delete")) {
             const id = message.content.substring(7).trim();
 
