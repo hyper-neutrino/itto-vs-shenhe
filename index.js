@@ -716,7 +716,9 @@ client.on("messageCreate", async (message) => {
     if (answers.includes(message.content.toLowerCase())) {
         if (!is_dq(message.author.id)) {
             const pts =
-                (await db.collection("points").findOne({ user: id })) ?? {};
+                (await db
+                    .collection("points")
+                    .findOne({ user: message.author.id })) ?? {};
 
             if (!pts.dq) {
                 answers = [];
