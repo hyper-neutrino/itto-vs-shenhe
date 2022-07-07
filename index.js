@@ -714,30 +714,37 @@ client.on("messageCreate", async (message) => {
     }
 
     if (answers.includes(message.content.toLowerCase())) {
-        answers = [];
+        if (!is_dq(message.author.id)) {
+            const pts =
+                (await db.collection("points").findOne({ user: id })) ?? {};
 
-        await message.reply({
-            embeds: [
-                {
-                    title: "**Trivia Answered!**",
-                    description:
-                        "That is correct; congratulations! You have gained 100 points on this server.",
-                    color: "00ff00",
-                    footer:
-                        maxskip > 0
-                            ? {
-                                  text: "The trivia interval has been reset to normal.",
-                              }
-                            : undefined,
-                },
-            ],
-        });
+            if (!pts.dq) {
+                answers = [];
 
-        points += 100;
+                await message.reply({
+                    embeds: [
+                        {
+                            title: "**Trivia Answered!**",
+                            description:
+                                "That is correct; congratulations! You have gained 100 points on this server.",
+                            color: "00ff00",
+                            footer:
+                                maxskip > 0
+                                    ? {
+                                          text: "The trivia interval has been reset to normal.",
+                                      }
+                                    : undefined,
+                        },
+                    ],
+                });
 
-        skip = maxskip = 0;
-        clearTimeout(cancel);
-        active = 0;
+                points += 100;
+
+                skip = maxskip = 0;
+                clearTimeout(cancel);
+                active = 0;
+            }
+        }
     }
 
     await db.collection("points").findOneAndUpdate(
