@@ -714,6 +714,8 @@ client.on("messageCreate", async (message) => {
     }
 
     if (answers.includes(message.content.toLowerCase())) {
+        answers = [];
+
         await message.reply({
             embeds: [
                 {
@@ -733,7 +735,6 @@ client.on("messageCreate", async (message) => {
 
         points += 100;
 
-        answers = [];
         skip = maxskip = 0;
         clearTimeout(cancel);
         active = 0;
