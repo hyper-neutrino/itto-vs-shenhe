@@ -80,7 +80,7 @@ function post_trivia() {
                 });
 
                 active = 0;
-                answers = entry.answers;
+                answers = entry.answers.map((x) => x.trim());
 
                 cancel = setTimeout(async () => {
                     await channel.send({
