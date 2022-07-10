@@ -13,6 +13,7 @@ const client = new Client({
     intents: ["GUILDS", "GUILD_MESSAGES", "DIRECT_MESSAGES"],
     partials: ["CHANNEL"],
     allowedMentions: { parse: [] },
+    failIfNotExists: false,
 });
 
 const config = JSON.parse(readFileSync("config.json"));
@@ -34,6 +35,11 @@ client.on("ready", async () => {
 
     console.log("Ready!");
 });
+
+async function slowmode(duration) {
+    await client.itto.channel.setRateLimitPerUser(duration);
+    await client.shenhe.channel.setRateLimitPerUser(duration);
+}
 
 let answers = [];
 let cancel;
@@ -79,6 +85,8 @@ function post_trivia() {
                     files: entry.attachments,
                 });
 
+                await slowmode(20);
+
                 active = 0;
                 answers = entry.answers.map((x) => x.trim());
 
@@ -113,6 +121,8 @@ function post_trivia() {
                             },
                         ],
                     });
+
+                    await slowmode(0);
 
                     if (active >= 5) maxskip = 0;
                     if (active < 5 && skip == 0) ++maxskip;
@@ -739,6 +749,8 @@ client.on("messageCreate", async (message) => {
                         },
                     ],
                 });
+
+                await slowmode(0);
 
                 points += 100;
 
