@@ -85,7 +85,7 @@ function post_trivia() {
                     files: entry.attachments,
                 });
 
-                await slowmode(20);
+                setTimeout(async () => await slowmode(20), 2500);
 
                 active = 0;
                 answers = entry.answers.map((x) => x.trim());
