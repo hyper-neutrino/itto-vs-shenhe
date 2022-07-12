@@ -91,6 +91,8 @@ function post_trivia() {
                 answers = entry.answers.map((x) => x.trim());
 
                 cancel = setTimeout(async () => {
+                    answers = [];
+
                     await channel.send({
                         embeds: [
                             {
