@@ -136,7 +136,7 @@ function post_trivia() {
         }
 
         post_trivia();
-    }, Math.floor(Math.random() * 600000 + 600000));
+    }, Math.floor(Math.random() * 300000 + 1200000));
 }
 
 const background = await loadImage("background.png");
